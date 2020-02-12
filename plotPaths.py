@@ -35,9 +35,9 @@ def define_args():
 	parser.add_argument("-p", "--file",       type=str, help="input file [flightData.csv]")   
 	parser.add_argument("-i", "--istart",     type=int, help="starting frame [0]")   
 	parser.add_argument("-a", "--alpha",      type=float, help="alpha [0.1]")  
-	parser.add_argument("-b", "--tfac",       type=float, help="time factor for length of line [100]") 
+	parser.add_argument("-b", "--tfac",       type=float, help="time factor for length of line [500]") 
 	parser.add_argument("-l", "--linelen",    type=int, help="default line length [2000]")
-	parser.add_argument("-w", "--linewidth",  type=int, help="default line width [1]")	
+	parser.add_argument("-w", "--linewidth",  type=int, help="default line width [2]")	
 	parser.add_argument("-g", "--color1",     type=float, help="colormap location of ORD [0.9]")	
 	parser.add_argument("-j", "--color2",     type=float, help="colormap location of other airports [0.5]")	
 	parser.add_argument("-m", "--ms",        type=int, help="marker size [5]")
@@ -66,11 +66,11 @@ def define_args():
 	if (args.alpha is None):
 		args.alpha = 0.1
 	if (args.tfac is None):
-		args.tfac = 100.
+		args.tfac = 500.
 	if (args.linelen is None):
 		args.linelen = 1000
 	if (args.linewidth is None):
-		args.linewidth = 1
+		args.linewidth = 2
 	if (args.color1 is None):
 		args.color1 = 0.9
 	if (args.color2 is None):
@@ -100,17 +100,17 @@ class LowerThresholdPlateCarree(ccrs.PlateCarree):
 	def threshold(self):
 		return 0.15
 	
-def drawLineSegment(ax, lon1, lat1, lon2, lat2, linelen, offsetlen, alpha, linewidth, color):
+def drawLineSegment(ax, lon1, lat1, lon2, lat2, linelen, offsetlen, alpha, linewidth, color, zorder=1):
 		
 	#print(lon1, lat1, lon2, lat2, color, alpha)
 	
 	x = ax.plot([lon1, lon2], [lat1, lat2],
 		color=color, alpha=alpha, transform=ccrs.Geodetic(),
-		linewidth=linewidth, dashes=[0, offsetlen, linelen, 2000], dash_capstyle='round')
+		linewidth=linewidth, dashes=[0, offsetlen, linelen, 2000], dash_capstyle='round', zorder=zorder)
 	#print(len(x), x[0].get_path().__dict__)
 
 		
-def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, linelen, alpha, linewidth, ms,fname=None):
+def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, linelen, alpha, linewidth, ms, fname=None):
 
 	#create the map projection
 	proj = LowerThresholdPlateCarree(central_longitude=ohare_lon)
@@ -142,41 +142,40 @@ def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, line
 	ORDafac = 4.
 	ORDlfac = 2.
 	ORDmfac = 2.
-	for index, row in df.iterrows():
-		c = color2
-		lw = linewidth
-		a = alpha
-		if (row['destination_airport'] == 'ORD'):
+
+	destinationOther = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] != 'ORD')]
+	if (len(destinationOther) > 0):
+		for index, row in destinationOther.iterrows():
+			c = color2
+			lw = linewidth
+			a = alpha
+			llen = (t - float(row['source_departure_time']))*tfac
+			drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
+							row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
+							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=1)
+
+		ax.plot(destinationOther['source_longitude'].values, destinationOther['source_latitude'].values, 
+				color=color2, alpha=alpha, transform=ccrs.Geodetic(),
+				marker='o', ms=ms, mfc=color2, mew=0, linewidth=0, zorder=1)
+
+	destinationORD = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] == 'ORD')]
+	if (len(destinationORD) > 0):
+		for index, row in destinationORD.iterrows():
 			c = color1
 			lw = linewidth*ORDlfac
 			a = alpha*ORDafac
-		llen = (t - float(row['source_departure_time']))*tfac
-		# drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
-		# 				row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
-		# 				linelen=llen, alpha=a, linewidth=lw, color=c)
+			llen = (t - float(row['source_departure_time']))*tfac
+			drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
+							row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
+							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=2)
 
-		drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
-						row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
-						linelen=llen, alpha=a, linewidth=lw, color=c)
-
-	destinationOther = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] != 'ORD')]
-	destinationORD = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] == 'ORD')]
-	#marker at source
-	if (len(destinationOther) > 0):
-		ax.plot(destinationOther['source_longitude'].values, destinationOther['source_latitude'].values, 
-				color=color2, alpha=alpha, transform=ccrs.Geodetic(),
-				marker='o', ms=ms, mfc=color2, mew=0, linewidth=0)
-	if (len(destinationORD) > 0):
 		ax.plot(destinationORD['source_longitude'].values, destinationORD['source_latitude'].values, 
 				color=color1, alpha=ORDafac*alpha, transform=ccrs.Geodetic(),
-				marker='o', ms=ORDmfac*ms, mfc=color1, mew=0, linewidth=0)	
+				marker='o', ms=ORDmfac*ms, mfc=color1, mew=0, linewidth=0, zorder=2)	
 
 	#https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.get_path
 	#want marker at destination?
-#     if (dt < llen):
-#         ax.plot([ohare_lon], [ohare_lat], marker='o', ms=ms, mfc=color, mew=0)
-#         if (index > 1000):
-#             break
+
 
 	if (fname is None):
 		fname = 'plots/flights_'+str(i).zfill(3)+'.png'
@@ -193,7 +192,7 @@ if __name__ == "__main__":
 
 	flights_df = pd.read_csv(args.file)
 
-	#flights_df = flights_df[0:10000]
+	#flights_df = flights_df[0:5000]
 
 	tmin = float(min(flights_df['source_departure_time'].astype(float).values))
 	tmax = float(max(flights_df['source_departure_time'].astype(float).values))
@@ -215,7 +214,7 @@ if __name__ == "__main__":
 
 	print('done.')
 
-#ffmpeg -r 30  -i plots/test_flights_%03d.png -c:v mpeg4 -q:v 1  flightPaths.mp4
+#ffmpeg -r 30  -i plots/flights_%03d.png -c:v mpeg4 -q:v 1  flightPaths.mp4
 
 # git filter-branch --force --index-filter \
 #   "git rm --cached --ignore-unmatch flightPaths.mp4" \

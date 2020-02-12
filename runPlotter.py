@@ -1,3 +1,4 @@
+#start with 127
 import numpy as np
 import sys
 import time
@@ -14,7 +15,10 @@ def waitproc(proc, startval):
 			x = line.decode("utf-8").split()
 
 			if (x[0].strip() == 'plotting'):
-				startval = x[1].strip()
+				try:
+					startval = int(x[1].strip())
+				except:
+					print("bad startval ", startval)
 
 			if (x[0].strip() == 'done.'):
 				return -1
@@ -27,9 +31,9 @@ def followProcess(istart=0):
 
 	startval = waitproc(proc, istart)
 
-	print('process finished...')
+	print('process finished...', startval)
 
-	if (startval > 0):
+	if (int(startval) > 0):
 		istart = startval
 		print('restarting with istart = ',istart)
 		followProcess(istart)
