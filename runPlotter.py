@@ -5,7 +5,7 @@ import subprocess
 import os
 
 checkTime = 1 #seconds between checks of stdout
-istart = 899 
+istart = 127 
 
 def waitproc(proc, startval):
 	while proc.poll() is None:

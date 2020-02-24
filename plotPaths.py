@@ -162,7 +162,7 @@ def drawMap(df, t, zoomi, nframes, zoomFac, colorORD, colorOTHER, colorBACK, xpi
 							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=1)
 
 		ax.plot(destinationOther['source_longitude'].values, destinationOther['source_latitude'].values, 
-				color=c, alpha=a, transform=ccrs.Geodetic(),
+				color=c, alpha=a, transform=data_crs,#ccrs.Geodetic(),
 				marker='o', ms=m, mfc=c, mew=0, linewidth=0, zorder=1)
 
 	destinationORD = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] == 'ORD')]
@@ -179,7 +179,7 @@ def drawMap(df, t, zoomi, nframes, zoomFac, colorORD, colorOTHER, colorBACK, xpi
 							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=2)
 
 		ax.plot(destinationORD['source_longitude'].values, destinationORD['source_latitude'].values, 
-				color=c, alpha=a, transform=ccrs.Geodetic(),
+				color=c, alpha=a, transform=data_crs,#ccrs.Geodetic(),
 				marker='o', ms=m, mfc=c, mew=0, linewidth=0, zorder=2)	
 
 	#https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.get_path
