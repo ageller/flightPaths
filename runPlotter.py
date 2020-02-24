@@ -1,4 +1,3 @@
-#start with 127
 import numpy as np
 import sys
 import time
@@ -6,7 +5,7 @@ import subprocess
 import os
 
 checkTime = 1 #seconds between checks of stdout
-istart = 0
+istart = 899 
 
 def waitproc(proc, startval):
 	while proc.poll() is None:
@@ -44,5 +43,5 @@ def followProcess(istart=0):
 
 if __name__ == "__main__":
 
-	followProcess();
+	followProcess(istart=istart);
 	

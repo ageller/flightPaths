@@ -29,18 +29,19 @@ def define_args():
 	parser.add_argument("-f", "--fps",        type=int, help="frames per second [30]")
 	parser.add_argument("-d", "--duration",   type=int, help="number of seconds [30]")
 	parser.add_argument("-r", "--dpi",        type=int, help="dpi resolution [72]")
-	parser.add_argument("-x", "--xpix",       type=int, help="number of x pixels [1920]")
-	parser.add_argument("-y", "--ypix",       type=int, help="number of y pixels [1080]")
-	parser.add_argument("-c", "--cmap",       type=str, help="color map [viridis]")
+	parser.add_argument("-x", "--xpix",       type=int, help="number of x pixels [6000]")
+	parser.add_argument("-y", "--ypix",       type=int, help="number of y pixels [3375]")
 	parser.add_argument("-p", "--file",       type=str, help="input file [flightData.csv]")   
 	parser.add_argument("-i", "--istart",     type=int, help="starting frame [0]")   
 	parser.add_argument("-a", "--alpha",      type=float, help="alpha [0.1]")  
-	parser.add_argument("-b", "--tfac",       type=float, help="time factor for length of line [500]") 
+	parser.add_argument("-t", "--tfac",       type=float, help="time factor for length of line [500]") 
+	parser.add_argument("-s", "--zoom",       type=float, help="factor to zoom in during each scene [160]") 
 	parser.add_argument("-l", "--linelen",    type=int, help="default line length [2000]")
-	parser.add_argument("-w", "--linewidth",  type=int, help="default line width [2]")	
-	parser.add_argument("-g", "--color1",     type=float, help="colormap location of ORD [0.9]")	
-	parser.add_argument("-j", "--color2",     type=float, help="colormap location of other airports [0.5]")	
-	parser.add_argument("-m", "--ms",        type=int, help="marker size [5]")
+	parser.add_argument("-w", "--linewidth",  type=int, help="default line width [7]")	
+	parser.add_argument("-g", "--colorORD",   type=str, help="hex color for ORD [#F8D136]")	
+	parser.add_argument("-j", "--colorOTHER", type=str, help="hex color for other airports [#00FA9A]")	
+	parser.add_argument("-b", "--colorBACK",  type=str, help="hex color for background [#000016]")	
+	parser.add_argument("-m", "--ms",         type=int, help="marker size [20]")
 
 
 	#https://docs.python.org/2/howto/argparse.html
@@ -54,11 +55,9 @@ def define_args():
 	if (args.dpi is None):
 		args.dpi = 72
 	if (args.xpix is None):
-		args.xpix = 1920
+		args.xpix = 6000
 	if (args.ypix is None):
-		args.ypix = 1080
-	if (args.cmap is None):
-		args.cmap = 'viridis'
+		args.ypix = 3375
 	if (args.file is None):
 		args.file = 'flightData.csv'
 	if (args.istart is None):
@@ -67,16 +66,20 @@ def define_args():
 		args.alpha = 0.1
 	if (args.tfac is None):
 		args.tfac = 500.
+	if (args.zoom is None):
+		args.zoom = 160.
 	if (args.linelen is None):
 		args.linelen = 1000
 	if (args.linewidth is None):
-		args.linewidth = 2
-	if (args.color1 is None):
-		args.color1 = 0.9
-	if (args.color2 is None):
-		args.color2 = 0.5
+		args.linewidth = 7
+	if (args.colorORD is None):
+		args.colorORD = '#D8D136'
+	if (args.colorOTHER is None):
+		args.colorOTHER = '#00FA9A'
+	if (args.colorBACK is None):
+		args.colorBACK = '#000016'
 	if (args.ms is None):
-		args.ms = 5
+		args.ms = 20
 
 	#to print out the options that were selected (probably some way to use this to quickly assign args)
 	opts = vars(args)
@@ -110,7 +113,7 @@ def drawLineSegment(ax, lon1, lat1, lon2, lat2, linelen, offsetlen, alpha, linew
 	#print(len(x), x[0].get_path().__dict__)
 
 		
-def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, linelen, alpha, linewidth, ms, fname=None):
+def drawMap(df, t, zoomi, nframes, zoomFac, colorORD, colorOTHER, colorBACK, xpix, ypix, dpi, tfac, linelen, alpha, linewidth, ms, fname=None):
 
 	#create the map projection
 	proj = LowerThresholdPlateCarree(central_longitude=ohare_lon)
@@ -123,13 +126,15 @@ def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, line
 	ax.axis('off')
 	ax.outline_patch.set_visible(False)
 	#ax.set_global()
-	shrink = float(shrinki)/float(nframes)*40.
-	extent = [-180 + shrink , 180 - shrink, -90 + shrink/2., 90 - shrink/2.]
+	zoom = float(zoomi)/float(nframes)*zoomFac
+	latExtent = -90 - (-90 - (-90 + zoom/2. + ohare_lat))*zoomi/nframes
+	lonExtent = 90 - (90 - (90 - zoom/2. + ohare_lat))*zoomi/nframes
+	extent = [-180 + zoom , 180 - zoom, latExtent, lonExtent]
 	#extent = [-180, 180, -90, 90]
-	#print(shrink, extent)
+	#print(zoom, extent)
 	ax.set_extent(extent, crs=proj)
 
-	ax.background_patch.set_facecolor('k')
+	ax.background_patch.set_facecolor(colorBACK)
 
 	# #include the map in the background?
 	# ax.add_feature(cartopy.feature.LAND, color=cmap(0.4))
@@ -145,33 +150,37 @@ def drawMap(df, t, shrinki, nframes, color1, color2, xpix, ypix, dpi, tfac, line
 
 	destinationOther = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] != 'ORD')]
 	if (len(destinationOther) > 0):
+		c = colorOTHER
+		lw = linewidth
+		a = alpha
+		m = ms
 		for index, row in destinationOther.iterrows():
-			c = color2
-			lw = linewidth
-			a = alpha
+
 			llen = (t - float(row['source_departure_time']))*tfac
 			drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
 							row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
 							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=1)
 
 		ax.plot(destinationOther['source_longitude'].values, destinationOther['source_latitude'].values, 
-				color=color2, alpha=alpha, transform=ccrs.Geodetic(),
-				marker='o', ms=ms, mfc=color2, mew=0, linewidth=0, zorder=1)
+				color=c, alpha=a, transform=ccrs.Geodetic(),
+				marker='o', ms=m, mfc=c, mew=0, linewidth=0, zorder=1)
 
 	destinationORD = df.loc[(df['source_departure_time'].astype(float)<= t) & (df['destination_airport'] == 'ORD')]
 	if (len(destinationORD) > 0):
+		c = colorORD
+		lw = linewidth*ORDlfac
+		a = alpha*ORDafac
+		m = ms*ORDmfac
 		for index, row in destinationORD.iterrows():
-			c = color1
-			lw = linewidth*ORDlfac
-			a = alpha*ORDafac
+
 			llen = (t - float(row['source_departure_time']))*tfac
 			drawLineSegment(ax, row['source_longitude'], row['source_latitude'], 
 							row['destination_longitude'], row['destination_latitude'], offsetlen=0,  
 							linelen=llen, alpha=a, linewidth=lw, color=c, zorder=2)
 
 		ax.plot(destinationORD['source_longitude'].values, destinationORD['source_latitude'].values, 
-				color=color1, alpha=ORDafac*alpha, transform=ccrs.Geodetic(),
-				marker='o', ms=ORDmfac*ms, mfc=color1, mew=0, linewidth=0, zorder=2)	
+				color=c, alpha=a, transform=ccrs.Geodetic(),
+				marker='o', ms=m, mfc=c, mew=0, linewidth=0, zorder=2)	
 
 	#https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.get_path
 	#want marker at destination?
@@ -187,12 +196,11 @@ if __name__ == "__main__":
 
 	args = define_args()
 
-	cmap = matplotlib.cm.get_cmap(args.cmap)
 	nframes = args.duration*args.fps
 
 	flights_df = pd.read_csv(args.file)
 
-	#flights_df = flights_df[0:5000]
+	#flights_df = flights_df[0:1000]
 
 	tmin = float(min(flights_df['source_departure_time'].astype(float).values))
 	tmax = float(max(flights_df['source_departure_time'].astype(float).values))
@@ -208,7 +216,7 @@ if __name__ == "__main__":
 				sys.stdout.flush()
 			except:
 				print("can't flush stdout")
-			drawMap(inTime, t, i, nframes, cmap(args.color1), cmap(args.color2), args.xpix, args.ypix, args.dpi, args.tfac, args.linelen, args.alpha, args.linewidth, args.ms)
+			drawMap(inTime, t, i, nframes, args.zoom, args.colorORD, args.colorOTHER, args.colorBACK, args.xpix, args.ypix, args.dpi, args.tfac, args.linelen, args.alpha, args.linewidth, args.ms)
 
 
 
