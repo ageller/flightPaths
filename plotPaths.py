@@ -127,11 +127,11 @@ def drawMap(df, t, zoomi, nframes, zoomFac, colorORD, colorOTHER, colorBACK, xpi
 	ax.outline_patch.set_visible(False)
 	#ax.set_global()
 	zoom = float(zoomi)/float(nframes)*zoomFac
-	latExtent = -90 - (-90 - (-90 + zoom/2. + ohare_lat))*zoomi/nframes
-	lonExtent = 90 - (90 - (90 - zoom/2. + ohare_lat))*zoomi/nframes
-	extent = [-180 + zoom , 180 - zoom, latExtent, lonExtent]
+	latExtent0 = -90 - (-90 - (-90 + zoomFac/2. + ohare_lat))*zoomi/nframes
+	latExtent1 = 90 - (90 - (90 - zoomFac/2. + ohare_lat))*zoomi/nframes
+	extent = [-180 + zoom , 180 - zoom, latExtent0, latExtent1]
 	#extent = [-180, 180, -90, 90]
-	#print(zoom, extent)
+	print(zoom, extent)
 	ax.set_extent(extent, crs=proj)
 
 	ax.background_patch.set_facecolor(colorBACK)
@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
 	flights_df = pd.read_csv(args.file)
 
-	#flights_df = flights_df[0:1000]
+	flights_df = flights_df[0:1000]
 
 	tmin = float(min(flights_df['source_departure_time'].astype(float).values))
 	tmax = float(max(flights_df['source_departure_time'].astype(float).values))
